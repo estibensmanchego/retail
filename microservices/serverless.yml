@@ -1,0 +1,71 @@
+service: ${file(config.${opt:stage, self:provider.stage}.yml):prefix}-client
+
+frameworkVersion: ">=1.1.0 <2.0.0"
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: dev
+  region: us-east-1
+  versionFunctions: false
+  environment:
+    DYNAMODB_TABLE: ${file(tables.yml):client}-${opt:stage, self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+functions:
+  create:
+    handler: create.create
+    events:
+      - http:
+          path: clients
+          method: post
+          cors: true
+
+  list:
+    handler: list.list
+    events:
+      - http:
+          path: clients
+          method: get
+          cors: true
+
+  kpi:
+    handler: kpi.kpi
+    events:
+      - http:
+          path: clients/kpi
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    ClientDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+
+#plugins:
+#  - serverless-domain-manager
+
+plugins:
+  - serverless-python-requirements
